@@ -105,6 +105,29 @@ class TestW3CBaggagePropagator(TestCase):
         expected = {"key1": "", "key2": "val2"}
         self.assertEqual(self._extract(header), expected)
 
+    def test_multiple_headers_are_combined(self):
+        carrier = {"baggage": ["key1=val1", "key2=val2,key3=val3"]}
+        expected = {"key1": "val1", "key2": "val2", "key3": "val3"}
+        self.assertEqual(get_all(self.propagator.extract(carrier)), expected)
+
+    def test_multiple_headers_later_value_wins(self):
+        carrier = {"baggage": ["key1=first", "key1=second"]}
+        self.assertEqual(get_all(self.propagator.extract(carrier)), {"key1": "second"})
+
+    def test_multiple_headers_skip_empty_values(self):
+        carrier = {"baggage": ["", "key1=val1"]}
+        self.assertEqual(get_all(self.propagator.extract(carrier)), {"key1": "val1"})
+
+    def test_multiple_headers_share_the_byte_limit(self):
+        half = "s" * (W3CBaggagePropagator._MAX_HEADER_LENGTH // 2)
+        carrier = {"baggage": [f"key1={half}", f"key2={half}"]}
+        with self.assertLogs(level=WARNING) as warning:
+            self.assertEqual(get_all(self.propagator.extract(carrier)), {})
+            self.assertIn(
+                "exceeded the maximum number of bytes per baggage-string",
+                warning.output[0],
+            )
+
     def test_invalid_header(self):
         self.assertEqual(self._extract("header1"), {})
         self.assertEqual(self._extract(" = "), {})

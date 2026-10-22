@@ -85,7 +85,10 @@ class W3CBaggagePropagator(textmap.TextMapPropagator):
         if context is None:
             context = get_current()
 
-        header = _extract_first_element(getter.get(carrier, self._BAGGAGE_HEADER_NAME))
+        # Multiple baggage headers are equivalent to a single comma-joined one
+        # (RFC 9110 section 5.3, W3C Baggage).
+        values = getter.get(carrier, self._BAGGAGE_HEADER_NAME)
+        header = ",".join(values) if values else None
 
         if not header:
             return context
@@ -169,11 +172,3 @@ def _encode_baggage_pairs(
     """Yield URL-encoded 'key=value' pairs from baggage entries."""
     for key, value in baggage_entries.items():
         yield quote_plus(str(key)) + "=" + quote_plus(str(value))
-
-
-def _extract_first_element(
-    items: Iterable[textmap.CarrierT] | None,
-) -> textmap.CarrierT | None:
-    if items is None:
-        return None
-    return next(iter(items), None)
